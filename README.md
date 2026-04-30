@@ -1,5 +1,7 @@
 # Credit Risk Scorer
 
+**[🚀 Live Demo → gabetorrijos.github.io/credit-risk-scorer](https://gabetorrijos.github.io/credit-risk-scorer/)**
+
 A machine learning project that predicts loan approval likelihood based on borrower financial data.
 
 ## Overview

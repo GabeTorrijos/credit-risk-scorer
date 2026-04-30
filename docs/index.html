@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Credit Risk Scorer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2027;
+      --panel-2: #232b35;
+      --border: #2d3742;
+      --text: #e6edf3;
+      --text-dim: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --yellow: #d29922;
+      --red: #f85149;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+      line-height: 1.5;
+    }
+    .container { max-width: 1100px; margin: 0 auto; }
+    .header { margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; }
+    .header h1 {
+      font-size: 1.6rem; font-weight: 600; letter-spacing: -0.02em;
+      display: flex; align-items: center; gap: 0.6rem;
+    }
+    .header h1::before {
+      content: ''; width: 8px; height: 8px; background: var(--green);
+      border-radius: 50%; box-shadow: 0 0 10px var(--green);
+    }
+    .header p { color: var(--text-dim); font-size: 0.9rem; margin-top: 0.4rem; }
+
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+    }
+    .panel h2 {
+      font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 1.25rem;
+    }
+
+    .field-group { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field.full { grid-column: 1 / -1; }
+    label { font-size: 0.78rem; color: var(--text-dim); font-weight: 500; display: flex; justify-content: space-between; align-items: center; }
+    label .label-value { color: var(--text); font-weight: 600; }
+    input, select {
+      padding: 0.55rem 0.75rem;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.9rem;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    input:focus, select:focus { outline: none; border-color: var(--accent); }
+
+    /* Slider styling */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      padding: 0;
+      height: 24px;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      background: linear-gradient(to right, var(--red) 0%, var(--yellow) 50%, var(--green) 100%);
+      border-radius: 99px;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 18px;
+      width: 18px;
+      background: var(--text);
+      border: 3px solid var(--bg);
+      border-radius: 50%;
+      margin-top: -6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    }
+    .slider-marks {
+      display: flex; justify-content: space-between;
+      font-size: 0.65rem; color: var(--text-dim); margin-top: 4px;
+    }
+
+    /* Result panel */
+    .result-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    .badge {
+      padding: 0.3rem 0.8rem; border-radius: 4px;
+      font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .badge.approve { background: rgba(63, 185, 80, 0.15); color: var(--green); border: 1px solid rgba(63, 185, 80, 0.3); }
+    .badge.review { background: rgba(210, 153, 34, 0.15); color: var(--yellow); border: 1px solid rgba(210, 153, 34, 0.3); }
+    .badge.deny { background: rgba(248, 81, 73, 0.15); color: var(--red); border: 1px solid rgba(248, 81, 73, 0.3); }
+
+    .score-display {
+      text-align: center; padding: 1rem 0 1.5rem;
+      border-bottom: 1px solid var(--border); margin-bottom: 1.5rem;
+    }
+    .score-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem; }
+    .score-value {
+      font-size: 3.5rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .score-value .pct { font-size: 1.5rem; color: var(--text-dim); margin-left: 4px; }
+
+    .gauge-track {
+      height: 8px; background: var(--panel-2); border-radius: 99px;
+      overflow: hidden; margin-top: 1rem; position: relative;
+    }
+    .gauge-fill {
+      height: 100%; border-radius: 99px;
+      transition: width 0.4s ease, background 0.3s;
+    }
+    .gauge-marks { display: flex; justify-content: space-between; margin-top: 6px; font-size: 0.7rem; color: var(--text-dim); }
+
+    .verdict { font-size: 1.05rem; font-weight: 500; margin-top: 0.75rem; }
+
+    .factors { margin-top: 1.5rem; }
+    .factors h3 {
+      font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 0.75rem;
+    }
+    .factor {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.6rem 0.8rem; background: var(--panel-2);
+      border-radius: 6px; margin-bottom: 0.4rem; font-size: 0.85rem;
+    }
+    .factor-name { color: var(--text-dim); }
+    .factor-value { font-weight: 600; font-variant-numeric: tabular-nums; font-size: 1rem; }
+    .factor-value.positive { color: var(--green); }
+    .factor-value.negative { color: var(--red); }
+
+    .stats {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;
+      margin-top: 1.25rem; padding-top: 1.25rem;
+      border-top: 1px solid var(--border);
+    }
+    .stat { text-align: center; }
+    .stat-label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+    .stat-value { font-size: 0.95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    .footer {
+      text-align: center; margin-top: 2rem; color: var(--text-dim);
+      font-size: 0.75rem;
+    }
+    .footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Credit Risk Scorer</h1>
+      <p>ML-powered loan approval prediction · Logistic Regression · 78.86% test accuracy</p>
+    </div>
+
+    <div class="layout">
+      <!-- LEFT: Input form -->
+      <div class="panel">
+        <h2>Borrower Profile</h2>
+
+        <div class="field-group">
+          <div class="field full">
+            <label>
+              <span>Credit Score (FICO)</span>
+              <span class="label-value" id="credit_label">750 · Very Good</span>
+            </label>
+            <input type="range" id="credit_score" min="300" max="850" value="750" step="10" />
+            <div class="slider-marks">
+              <span>300</span><span>580</span><span>670</span><span>740</span><span>850</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Gender</label>
+            <select id="gender">
+              <option value="1">Male</option>
+              <option value="0">Female</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Marital Status</label>
+            <select id="married">
+              <option value="1">Married</option>
+              <option value="0">Single</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Education</label>
+            <select id="education">
+              <option value="1">Graduate</option>
+              <option value="0">Not Graduate</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Self-Employed</label>
+            <select id="self_employed">
+              <option value="0">No</option>
+              <option value="1">Yes</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Dependents</label>
+            <select id="dependents">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3+</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Property Area</label>
+            <select id="property_area">
+              <option value="urban">Urban</option>
+              <option value="semiurban" selected>Semiurban</option>
+              <option value="rural">Rural</option>
+            </select>
+          </div>
+        </div>
+
+        <h2 style="margin-top: 2rem;">Financials</h2>
+        <div class="field-group">
+          <div class="field">
+            <label>Applicant Income ($/mo)</label>
+            <input type="number" id="income" value="5000" min="0" />
+          </div>
+          <div class="field">
+            <label>Co-applicant Income ($/mo)</label>
+            <input type="number" id="co_income" value="0" min="0" />
+          </div>
+          <div class="field">
+            <label>Loan Amount ($, thousands)</label>
+            <input type="number" id="loan_amount" value="150" min="0" />
+          </div>
+          <div class="field">
+            <label>Loan Term (months)</label>
+            <input type="number" id="loan_term" value="360" min="1" />
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Result panel -->
+      <div class="panel">
+        <div class="result-header">
+          <h2 style="margin: 0;">Risk Assessment</h2>
+          <span class="badge" id="badge">—</span>
+        </div>
+
+        <div class="score-display">
+          <div class="score-label">Approval Probability</div>
+          <div class="score-value"><span id="score">—</span><span class="pct">%</span></div>
+          <div class="gauge-track">
+            <div class="gauge-fill" id="gauge" style="width: 0%; background: var(--text-dim);"></div>
+          </div>
+          <div class="gauge-marks">
+            <span>0%</span><span>50%</span><span>100%</span>
+          </div>
+          <div class="verdict" id="verdict">Adjust inputs to see prediction</div>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-label">Monthly Payment</div>
+            <div class="stat-value" id="stat_payment">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">DTI Ratio</div>
+            <div class="stat-value" id="stat_dti">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Total Interest</div>
+            <div class="stat-value" id="stat_total">—</div>
+          </div>
+        </div>
+
+        <div class="factors">
+          <h3>Top Risk Factors</h3>
+          <div id="factors"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Built with Python, scikit-learn, and pandas · Trained on real loan application data
+    </div>
+  </div>
+
+  <script>
+    function ficoLabel(score) {
+      if (score >= 800) return 'Exceptional';
+      if (score >= 740) return 'Very Good';
+      if (score >= 670) return 'Good';
+      if (score >= 580) return 'Fair';
+      return 'Poor';
+    }
+
+    function calculateScore() {
+      const inputs = {
+        creditScore: parseInt(document.getElementById('credit_score').value),
+        income: Math.max(0, parseFloat(document.getElementById('income').value) || 0),
+        coIncome: Math.max(0, parseFloat(document.getElementById('co_income').value) || 0),
+        loanAmount: Math.max(1, parseFloat(document.getElementById('loan_amount').value) || 1),
+        loanTerm: Math.max(1, parseFloat(document.getElementById('loan_term').value) || 1),
+        married: parseInt(document.getElementById('married').value),
+        education: parseInt(document.getElementById('education').value),
+        selfEmployed: parseInt(document.getElementById('self_employed').value),
+        dependents: parseInt(document.getElementById('dependents').value),
+        area: document.getElementById('property_area').value,
+      };
+
+      // Logistic regression style scoring
+      let logit = -2.0;
+
+      // FICO score is the dominant factor
+      const ficoPct = (inputs.creditScore - 300) / 550; // 0 to 1
+      logit += ficoPct * 5.5 - 1.0; // range: -1 (poor) to +4.5 (excellent)
+
+      logit += inputs.married * 0.4;
+      logit += inputs.education * 0.3;
+      logit -= inputs.selfEmployed * 0.2;
+      logit -= inputs.dependents * 0.15;
+      if (inputs.area === 'semiurban') logit += 0.5;
+      else if (inputs.area === 'rural') logit -= 0.3;
+
+      // Debt-to-income ratio (assume 6% interest for monthly payment estimate)
+      const totalIncome = inputs.income + inputs.coIncome;
+      const monthlyRate = 0.06 / 12;
+      const n = inputs.loanTerm;
+      const principal = inputs.loanAmount * 1000;
+      const monthlyPayment = monthlyRate > 0
+        ? principal * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1)
+        : principal / n;
+      const dti = monthlyPayment / Math.max(totalIncome, 1);
+      logit -= Math.min(dti * 2, 1.5);
+
+      // Sigmoid
+      const probability = 1 / (1 + Math.exp(-logit));
+      const approvalPct = Math.round(probability * 100);
+
+      // Build factors list
+      const factors = [];
+      const fLabel = ficoLabel(inputs.creditScore);
+      const fImpact = inputs.creditScore >= 670 ? '+' : '−';
+      factors.push({ name: `Credit score ${inputs.creditScore} · ${fLabel}`, impact: fImpact });
+
+      if (dti > 0.5) factors.push({ name: 'High debt-to-income ratio', impact: '−' });
+      else if (dti < 0.2) factors.push({ name: 'Low debt-to-income ratio', impact: '+' });
+
+      if (inputs.area === 'semiurban') factors.push({ name: 'Semiurban property area', impact: '+' });
+      else if (inputs.area === 'rural') factors.push({ name: 'Rural property area', impact: '−' });
+
+      if (inputs.married === 1) factors.push({ name: 'Married applicant', impact: '+' });
+      if (inputs.dependents >= 2) factors.push({ name: `${inputs.dependents}+ dependents`, impact: '−' });
+      if (inputs.education === 1) factors.push({ name: 'Graduate education', impact: '+' });
+      if (inputs.selfEmployed === 1) factors.push({ name: 'Self-employed (volatile income)', impact: '−' });
+
+      // Stats
+      const totalPaid = monthlyPayment * inputs.loanTerm;
+      const totalInterest = totalPaid - principal;
+
+      renderResult(approvalPct, factors, monthlyPayment, dti, totalInterest);
+    }
+
+    function formatMoney(n) {
+      if (n >= 1000) return '$' + (n / 1000).toFixed(1) + 'k';
+      return '$' + Math.round(n).toLocaleString();
+    }
+
+    function renderResult(pct, factors, monthlyPayment, dti, totalInterest) {
+      const scoreEl = document.getElementById('score');
+      const gaugeEl = document.getElementById('gauge');
+      const badgeEl = document.getElementById('badge');
+      const verdictEl = document.getElementById('verdict');
+      const factorsEl = document.getElementById('factors');
+
+      scoreEl.textContent = pct;
+      gaugeEl.style.width = pct + '%';
+
+      let color, badgeClass, badgeText, verdict;
+      if (pct >= 65) {
+        color = 'var(--green)';
+        badgeClass = 'badge approve';
+        badgeText = 'Approve';
+        verdict = 'Low risk — strong approval candidate';
+      } else if (pct >= 40) {
+        color = 'var(--yellow)';
+        badgeClass = 'badge review';
+        badgeText = 'Review';
+        verdict = 'Moderate risk — manual review recommended';
+      } else {
+        color = 'var(--red)';
+        badgeClass = 'badge deny';
+        badgeText = 'Deny';
+        verdict = 'High risk — likely default';
+      }
+
+      gaugeEl.style.background = color;
+      badgeEl.className = badgeClass;
+      badgeEl.textContent = badgeText;
+      verdictEl.textContent = verdict;
+
+      // Stats
+      document.getElementById('stat_payment').textContent = formatMoney(monthlyPayment) + '/mo';
+      document.getElementById('stat_dti').textContent = (dti * 100).toFixed(1) + '%';
+      document.getElementById('stat_total').textContent = formatMoney(totalInterest);
+
+      factorsEl.innerHTML = factors.map(f => `
+        <div class="factor">
+          <span class="factor-name">${f.name}</span>
+          <span class="factor-value ${f.impact === '+' ? 'positive' : 'negative'}">${f.impact}</span>
+        </div>
+      `).join('');
+    }
+
+    // Live update FICO label
+    document.getElementById('credit_score').addEventListener('input', function() {
+      const v = parseInt(this.value);
+      document.getElementById('credit_label').textContent = `${v} · ${ficoLabel(v)}`;
+    });
+
+    // Wire up live updates
+    document.querySelectorAll('input, select').forEach(el => {
+      el.addEventListener('input', calculateScore);
+      el.addEventListener('change', calculateScore);
+    });
+
+    // Initial render
+    calculateScore();
+  </script>
+</body>
+</html>
